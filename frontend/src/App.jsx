@@ -145,7 +145,7 @@ function PriceComparisonTable({ prices, selectedFuelType }) {
 
 // ─── Price Simulator (What-If) ────────────────────────────────────────────────
 
-const QUICK_PRESETS = [0.5, 1.0, 2.0, 3.0]
+const QUICK_PRESETS = [0.5, 1.0, 2.0, 3.0,3.5]
 
 function PriceSimulator({ result }) {
   const [adjustment, setAdjustment] = useState(0.5)
@@ -265,10 +265,8 @@ const GAUGE_PRESETS = [
   { label: '¾',  value: 75 },
 ]
 
-function ResultSection({ result }) {
+function ResultSection({ result, tankCapacity }) {
   const [currentLevel, setCurrentLevel] = useState(0)
-
-  const tankCapacity    = result.car.tankCapacity
   const fillAmount      = 100 - currentLevel                                          // % of tank to add
   const litersToAdd     = Math.round((fillAmount / 100) * tankCapacity * 100) / 100
   const costToAdd       = Math.round(litersToAdd * result.pricePerLiter * 100) / 100
@@ -376,6 +374,7 @@ export default function App() {
   const [selectedBrand, setSelectedBrand]         = useState('')
   const [selectedModel, setSelectedModel]         = useState('')
   const [selectedFuelType, setSelectedFuelType]   = useState('')
+  const [customTankCapacity, setCustomTankCapacity] = useState('')
   const [mode, setMode]                           = useState('fullTank')
   const [budgetAmount, setBudgetAmount]           = useState('')
 
@@ -422,6 +421,8 @@ export default function App() {
     setSelectedFuelType('')
     setResult(null)
     setCalcError(null)
+    const found = availableModels.find(m => m.model === model)
+    setCustomTankCapacity(found?.tankCapacity ? String(found.tankCapacity) : '')
   }
 
   const handleModeChange = (newMode) => {
@@ -478,7 +479,7 @@ export default function App() {
         {/* Header */}
         <div className="text-center pb-2">
           <div className="text-5xl mb-2">⛽</div>
-          <h1 className="text-3xl font-black text-gray-800 tracking-tight">คำนวณค่าน้ำมัน</h1>
+          <h1 className="text-3xl font-black text-gray-800 tracking-tight">คำนวณค่าน้ำมันแบบรวยไม่ไหว</h1>
           <p className="text-gray-400 text-sm mt-1">เปรียบเทียบราคาและประหยัดค่าน้ำมัน</p>
         </div>
 
@@ -551,6 +552,28 @@ export default function App() {
             </select>
           </div>
 
+          {/* Tank Capacity */}
+          {selectedModel && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ขนาดถังน้ำมัน</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={customTankCapacity}
+                  onChange={e => { setCustomTankCapacity(e.target.value); setResult(null) }}
+                  placeholder="ระบุขนาดถัง เช่น 42"
+                  min="1"
+                  max="200"
+                  className="w-full border border-gray-200 rounded-2xl px-4 py-3 pr-14 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">ลิตร</span>
+              </div>
+              {!customTankCapacity && (
+                <p className="text-xs text-amber-500 mt-1">⚠️ ไม่พบข้อมูลขนาดถังในระบบ กรุณาระบุเอง</p>
+              )}
+            </div>
+          )}
+
           {/* Fuel Type Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ประเภทน้ำมัน</label>
@@ -610,7 +633,7 @@ export default function App() {
           )}
 
           {/* ── Result Section ── */}
-          {result && <ResultSection key={result.fuelType + result.mode + result.car?.modelFamily} result={result} />}
+          {result && <ResultSection key={result.fuelType + result.mode + result.car?.modelFamily} result={result} tankCapacity={Number(customTankCapacity) || result.car?.tankCapacity} />}
         </div>
 
         {/* ── Price Comparison Card ── */}
