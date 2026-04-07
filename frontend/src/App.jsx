@@ -1,6 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
+
+const PRIORITY_BRANDS = ['Toyota', 'Honda', 'Mazda', 'Isuzu']
+
+const FUEL_TYPES = [
+  'Gasohol91',
+  'Gasohol95',
+  'E20',
+  'E85',
+  'Diesel',
+  'Diesel B10',
+  'Hi Premium 97',
+  'NGV',
+]
 
 // ─── Golden Hour Banner ───────────────────────────────────────────────────────
 
@@ -10,6 +23,85 @@ function GoldenHourBanner({ alert }) {
     <div className="bg-amber-400 text-amber-950 font-bold text-center py-3 px-4 rounded-2xl shadow-lg mb-5">
       <span className="text-2xl mr-2">⚠️</span>
       <span className="text-base leading-snug">{alert.message}</span>
+    </div>
+  )
+}
+
+// ─── Searchable Select ────────────────────────────────────────────────────────
+
+function SearchableSelect({ options, value, onChange, placeholder, disabled }) {
+  const [query, setQuery]   = useState('')
+  const [open, setOpen]     = useState(false)
+  const containerRef        = useRef(null)
+
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtered = query
+    ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options
+
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen(o => !o)}
+        className={`w-full border rounded-2xl px-4 py-3 text-left flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+          disabled
+            ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+            : 'bg-white text-gray-800 border-gray-200'
+        } ${open ? 'ring-2 ring-blue-400 border-transparent' : ''}`}
+      >
+        <span className={selected ? 'text-gray-800' : 'text-gray-400'}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="ค้นหา..."
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-400 text-center">ไม่พบข้อมูล</div>
+            ) : (
+              filtered.map(o => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false) }}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${
+                    o.value === value ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -405,8 +497,21 @@ export default function App() {
   }, [])
 
   // ── Derived ──
-  const availableModels    = selectedBrand ? (carsData?.models?.[selectedBrand] ?? []) : []
-  const availableFuelTypes = selectedModel ? (availableModels.find(m => m.model === selectedModel)?.fuelTypes ?? []) : []
+  const availableModels = selectedBrand ? (carsData?.models?.[selectedBrand] ?? []) : []
+
+  const brandOptions = (() => {
+    const brands = carsData?.brands ?? []
+    const priority = PRIORITY_BRANDS.filter(b => brands.includes(b))
+    const rest = brands.filter(b => !PRIORITY_BRANDS.includes(b)).sort()
+    return [...priority, ...rest].map(b => ({ value: b, label: b }))
+  })()
+
+  const modelOptions = availableModels.map(m => ({
+    value: m.model,
+    label: m.tankCapacity > 0 ? `${m.model} (${m.tankCapacity}L)` : m.model,
+  }))
+
+  const fuelTypeOptions = FUEL_TYPES.map(ft => ({ value: ft, label: ft }))
 
   const handleBrandChange = (brand) => {
     setSelectedBrand(brand)
@@ -522,34 +627,24 @@ export default function App() {
           {/* Brand Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ยี่ห้อรถ</label>
-            <select
+            <SearchableSelect
+              options={brandOptions}
               value={selectedBrand}
-              onChange={e => handleBrandChange(e.target.value)}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-            >
-              <option value="">— เลือกยี่ห้อรถ —</option>
-              {carsData?.brands?.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+              onChange={handleBrandChange}
+              placeholder="— เลือกยี่ห้อรถ —"
+            />
           </div>
 
           {/* Model Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">รุ่นรถ</label>
-            <select
+            <SearchableSelect
+              options={modelOptions}
               value={selectedModel}
-              onChange={e => handleModelChange(e.target.value)}
+              onChange={handleModelChange}
+              placeholder="— เลือกรุ่นรถ —"
               disabled={!selectedBrand}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              <option value="">— เลือกรุ่นรถ —</option>
-              {availableModels.map(m => (
-                <option key={m.model} value={m.model}>
-                  {m.model} (ถัง {m.tankCapacity} ลิตร)
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Tank Capacity */}
@@ -577,17 +672,13 @@ export default function App() {
           {/* Fuel Type Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ประเภทน้ำมัน</label>
-            <select
+            <SearchableSelect
+              options={fuelTypeOptions}
               value={selectedFuelType}
-              onChange={e => { setSelectedFuelType(e.target.value); setResult(null) }}
+              onChange={v => { setSelectedFuelType(v); setResult(null) }}
+              placeholder="— เลือกประเภทน้ำมัน —"
               disabled={!selectedModel}
-              className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              <option value="">— เลือกประเภทน้ำมัน —</option>
-              {availableFuelTypes.map(ft => (
-                <option key={ft} value={ft}>{ft}</option>
-              ))}
-            </select>
+            />
           </div>
 
           {/* Budget Input */}

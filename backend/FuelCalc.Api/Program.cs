@@ -167,8 +167,13 @@ static async Task<Dictionary<string, decimal>> FetchPttPrices(
         var resp    = await client.PostAsync("oilservice/OilPrice.asmx", body);
         var xml     = await resp.Content.ReadAsStringAsync();
 
-        logger.LogInformation("[PTT Today] HTTP {Status}  body ({Len} chars):\n{Xml}",
-            (int)resp.StatusCode, xml.Length, xml);
+        logger.LogInformation("[PTT Today] HTTP {Status}  body ({Len} chars)", (int)resp.StatusCode, xml.Length);
+
+        if (xml.Contains("<html", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning("[PTT Today] response is HTML (endpoint may be blocked or down) – skipping");
+            return [];
+        }
 
         var priceMap = ParsePttSoapResponse(xml);
         logger.LogInformation("[PTT Today] parsed {Count} prices: {Map}",
@@ -222,8 +227,13 @@ static async Task<Dictionary<string, decimal>> FetchPttTomorrowPrices(
             var resp = await client.PostAsync("oilservice/OilPrice.asmx", body);
             var xml  = await resp.Content.ReadAsStringAsync();
 
-            logger.LogInformation("[PTT Tomorrow] HTTP {Status}  body ({Len} chars):\n{Xml}",
-                (int)resp.StatusCode, xml.Length, xml);
+            logger.LogInformation("[PTT Tomorrow] HTTP {Status}  body ({Len} chars)", (int)resp.StatusCode, xml.Length);
+
+            if (xml.Contains("<html", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("[PTT Tomorrow] response is HTML (endpoint may be blocked or down) – skipping");
+                break;
+            }
 
             priceMap = ParsePttSoapResponse(xml);
             logger.LogInformation("[PTT Tomorrow] parsed {Count} prices: {Map}",
