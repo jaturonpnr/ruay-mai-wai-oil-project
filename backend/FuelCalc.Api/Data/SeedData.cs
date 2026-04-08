@@ -244,7 +244,7 @@ public static class SeedData
                 new CarSpec { Brand = "Honda", ModelFamily = "CR-V", TankCapacity = 45, FuelTypesSupported = "" },
                 new CarSpec { Brand = "Honda", ModelFamily = "CR-Z", TankCapacity = 45, FuelTypesSupported = "" },
                 new CarSpec { Brand = "Honda", ModelFamily = "City", TankCapacity = 40, FuelTypesSupported = "Gasohol95,E20" },
-                new CarSpec { Brand = "Honda", ModelFamily = "Civic", TankCapacity = 45, FuelTypesSupported = "Gasohol95,E20" },
+                new CarSpec { Brand = "Honda", ModelFamily = "Civic", TankCapacity = 50, FuelTypesSupported = "Gasohol95,E20" },
                 new CarSpec { Brand = "Honda", ModelFamily = "Freed", TankCapacity = 45, FuelTypesSupported = "" },
                 new CarSpec { Brand = "Honda", ModelFamily = "HR-V", TankCapacity = 40, FuelTypesSupported = "" },
                 new CarSpec { Brand = "Honda", ModelFamily = "Insight", TankCapacity = 45, FuelTypesSupported = "" },
