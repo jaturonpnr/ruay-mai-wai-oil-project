@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -272,7 +273,7 @@ function TimeMachineCard({
               <p className="font-black text-slate-200 text-lg tabular-nums">
                 ฿{Number(timeMachineResult.historicalPricePerLiter).toFixed(2)}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">บาท/ลิตร</p>
+              <p className="text-xs text-slate-500 mt-0.5">บาท/ล��ตร</p>
             </div>
             <div className="bg-slate-800 rounded-2xl p-3.5 text-center">
               <p className="text-xs text-slate-400 font-bold mb-1 uppercase tracking-wide">ราคาวันนี้</p>
@@ -958,6 +959,7 @@ export default function App() {
         </p>
 
       </div>
+      <Analytics />
     </div>
   )
 }
