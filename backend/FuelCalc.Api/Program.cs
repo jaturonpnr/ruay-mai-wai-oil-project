@@ -433,6 +433,12 @@ app.MapGet("/api/cars", async (AppDbContext db) =>
 .WithName("GetCars")
 .WithOpenApi();
 
+// ── GET /health ───────────────────────────────────────────────────────────────
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
+   .WithName("HealthCheck")
+   .WithOpenApi();
+
 // ── GET /api/fuel-prices ──────────────────────────────────────────────────────
 // Price priority: PTT official XML (for PTT) → chnwt.dev → DB seed.
 // TomorrowPriceDifference always comes from DB (no public API provides this).
