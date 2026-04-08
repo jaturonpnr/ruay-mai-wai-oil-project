@@ -75,23 +75,25 @@ static string ToChnwtKey(string fuelType) => fuelType switch
     _           => fuelType.ToLower()
 };
 
-// PTT Thai product name → our FuelType label.
-// Matches the most specific pattern first to avoid false positives.
+// PTT product name → our FuelType label. Handles both English and Thai names.
 static string? MapPttProduct(string name)
 {
-    if (name.Contains("E20") || name.Contains("E 20"))
-        return "E20";
+    // E85 before E20 to avoid accidental substring match
+    if (name.Contains("E85") || name.Contains("E 85")) return "E85";
+    if (name.Contains("E20") || name.Contains("E 20")) return "E20";
 
-    if (name.Contains("แก๊สโซฮอล์ 95")
-        && !name.Contains("ซูเปอร์")
-        && !name.Contains("พรีเมียม"))
+    // Gasohol 91 (English response)
+    if (name.Contains("Gasohol 91") || name.Contains("แก๊สโซฮอล์ 91")) return "Gasohol91";
+
+    // Gasohol 95 — standard only (skip Super Power / Premium variants)
+    if ((name.Contains("Gasohol 95") || name.Contains("แก๊สโซฮอล์ 95"))
+        && !name.Contains("Super") && !name.Contains("ซูเปอร์") && !name.Contains("พรีเมียม"))
         return "Gasohol95";
 
-    // "ดีเซล" without qualifier = standard diesel (B7)
-    if (name.Contains("ดีเซล")
-        && !name.Contains("พรีเมียม")
-        && !name.Contains("B20")
-        && !name.Contains("บี 20"))
+    // Standard Diesel only (skip Premium Diesel / B20)
+    if ((name.Equals("Diesel", StringComparison.OrdinalIgnoreCase) || name.Contains("ดีเซล"))
+        && !name.Contains("Premium") && !name.Contains("พรีเมียม")
+        && !name.Contains("B20") && !name.Contains("บี 20"))
         return "Diesel";
 
     return null;
@@ -104,7 +106,7 @@ static string? MapPttProduct(string name)
 static StringContent BuildPttSoapBody(string method, string innerXml)
 {
     var envelope = $"""
-        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:orap="https://orapiweb.pttor.com">
           <soapenv:Header/>
           <soapenv:Body>
             <{method} xmlns="http://www.pttor.com">
@@ -119,27 +121,57 @@ static StringContent BuildPttSoapBody(string method, string innerXml)
 }
 
 // Parses the SOAP response and returns fuelType → price map.
+// PTT wraps the actual data as CDATA inside <GetOilPriceResult> / <CurrentOilPriceResult>.
+// The inner XML contains <FUEL><PRODUCT>...</PRODUCT><PRICE>...</PRICE></FUEL> elements.
 static Dictionary<string, decimal> ParsePttSoapResponse(string xml)
 {
-    XNamespace ns  = "http://www.pttor.com";
-    var doc        = XDocument.Parse(xml);
-    var priceMap   = new Dictionary<string, decimal>();
+    if (string.IsNullOrWhiteSpace(xml)) return [];
+    xml = xml.TrimStart('\uFEFF'); // strip BOM if present
+    if (string.IsNullOrWhiteSpace(xml)) return [];
 
+    var priceMap = new Dictionary<string, decimal>();
+    XDocument doc;
+    try { doc = XDocument.Parse(xml); }
+    catch { return []; }
+
+    // Find the result element (name varies by method: CurrentOilPriceResult / GetOilPriceResult)
+    var resultEl = doc.Descendants()
+        .FirstOrDefault(e => e.Name.LocalName.EndsWith("Result"));
+
+    if (resultEl is not null)
+    {
+        // Value contains the CDATA-wrapped inner XML
+        var inner = resultEl.Value.Trim();
+        if (string.IsNullOrEmpty(inner)) return [];
+
+        var innerDoc = XDocument.Parse(inner);
+        foreach (var fuel in innerDoc.Descendants("FUEL"))
+        {
+            var product  = fuel.Element("PRODUCT")?.Value.Trim();
+            var priceStr = fuel.Element("PRICE")?.Value.Trim();
+            var fuelType = product is not null ? MapPttProduct(product) : null;
+
+            if (fuelType is not null &&
+                decimal.TryParse(priceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var price) &&
+                price > 0)
+                priceMap.TryAdd(fuelType, price);
+        }
+        return priceMap;
+    }
+
+    // Fallback: old format where PRODUCT/PRICE are direct XML elements with namespace
+    XNamespace ns = "http://www.pttor.com";
     foreach (var row in doc.Descendants().Where(e =>
-        e.Element(ns + "PRODUCT") is not null &&
-        e.Element(ns + "PRICE")   is not null))
+        e.Element(ns + "PRODUCT") is not null && e.Element(ns + "PRICE") is not null))
     {
         var product  = row.Element(ns + "PRODUCT")!.Value.Trim();
         var priceStr = row.Element(ns + "PRICE")!.Value.Trim();
         var fuelType = MapPttProduct(product);
 
         if (fuelType is not null &&
-            decimal.TryParse(priceStr,
-                NumberStyles.Any, CultureInfo.InvariantCulture, out var price) &&
+            decimal.TryParse(priceStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var price) &&
             price > 0)
-        {
-            priceMap.TryAdd(fuelType, price); // first match wins per fuel type
-        }
+            priceMap.TryAdd(fuelType, price);
     }
 
     return priceMap;
@@ -281,6 +313,9 @@ static async Task<Dictionary<string, decimal>> FetchHistoricalPttPrices(
             var body = BuildPttSoapBody("GetOilPrice", innerXml);
             var resp = await client.PostAsync("oilservice/OilPrice.asmx", body);
             var xml  = await resp.Content.ReadAsStringAsync();
+
+            logger.LogWarning("[PTT Historical {Date}] raw response (first 300 chars): {Preview}",
+                date, xml.Length > 300 ? xml[..300] : xml);
 
             if (xml.Contains("<html", StringComparison.OrdinalIgnoreCase))
             {
