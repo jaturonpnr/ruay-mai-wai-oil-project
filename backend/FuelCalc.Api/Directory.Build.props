@@ -8,7 +8,7 @@
          CoreCLR from loading the native runtime. Redirect both obj/ and bin/
          to /tmp paths that contain no special characters. -->
     <BaseIntermediateOutputPath>/tmp/fuelcalc-obj/</BaseIntermediateOutputPath>
-    <MSBuildProjectExtensionsPath>/tmp/fuelcalc-obj/</MSBuildProjectExtensionsPath>
+    <MSBuildProjectExtensionsPath>/tmp/fuelcalc-nuget/</MSBuildProjectExtensionsPath>
     <BaseOutputPath>/tmp/fuelcalc-bin/</BaseOutputPath>
   </PropertyGroup>
 </Project>
