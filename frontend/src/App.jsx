@@ -35,7 +35,7 @@ function GoldenHourBanner({ alert }) {
 
 // ─── Searchable Select ────────────────────────────────────────────────────────
 
-function SearchableSelect({ options, value, onChange, placeholder, disabled }) {
+function SearchableSelect({ options, value, onChange, placeholder, disabled, dark = false }) {
   const [query, setQuery]   = useState('')
   const [open, setOpen]     = useState(false)
   const containerRef        = useRef(null)
@@ -64,41 +64,52 @@ function SearchableSelect({ options, value, onChange, placeholder, disabled }) {
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setOpen(o => !o)}
-        className={`w-full border rounded-2xl px-4 py-3 text-left flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+        className={`w-full border rounded-2xl px-4 py-3 text-left flex items-center justify-between transition-all focus:outline-none focus:ring-2 ${
           disabled
-            ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-            : 'bg-white text-gray-800 border-gray-200'
-        } ${open ? 'ring-2 ring-blue-400 border-transparent' : ''}`}
+            ? dark ? 'bg-slate-700 text-slate-500 border-slate-600 cursor-not-allowed'
+                   : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+            : dark ? 'bg-slate-800 text-slate-200 border-slate-600'
+                   : 'bg-white text-gray-800 border-gray-200'
+        } ${open ? (dark ? 'ring-2 ring-orange-400 border-transparent' : 'ring-2 ring-blue-400 border-transparent') : ''}`}
       >
-        <span className={selected ? 'text-gray-800' : 'text-gray-400'}>
+        <span className={selected
+          ? (dark ? 'text-slate-200' : 'text-gray-800')
+          : (dark ? 'text-slate-500' : 'text-gray-400')}>
           {selected ? selected.label : placeholder}
         </span>
-        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▾</span>
+        <span className={`text-xs transition-transform duration-200 ${dark ? 'text-slate-400' : 'text-gray-400'} ${open ? 'rotate-180' : ''}`}>▾</span>
       </button>
 
       {open && !disabled && (
-        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
+        <div className={`absolute z-20 w-full mt-1 border rounded-2xl shadow-xl overflow-hidden ${
+          dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'
+        }`}>
+          <div className={`p-2 border-b ${dark ? 'border-slate-700' : 'border-gray-100'}`}>
             <input
               autoFocus
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="ค้นหา..."
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className={`w-full px-3 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 ${
+                dark ? 'bg-slate-700 text-white border-slate-600 placeholder:text-slate-400 focus:ring-orange-400'
+                     : 'border-gray-200 focus:ring-blue-400'
+              }`}
             />
           </div>
           <div className="max-h-52 overflow-y-auto">
             {filtered.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-gray-400 text-center">ไม่พบข้อมูล</div>
+              <div className={`px-4 py-3 text-sm text-center ${dark ? 'text-slate-500' : 'text-gray-400'}`}>ไม่พบข้อมูล</div>
             ) : (
               filtered.map(o => (
                 <button
                   key={o.value}
                   type="button"
                   onClick={() => { onChange(o.value); setOpen(false) }}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${
-                    o.value === value ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700'
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                    o.value === value
+                      ? (dark ? 'bg-slate-700 text-orange-400 font-bold' : 'bg-blue-50 text-blue-600 font-bold')
+                      : (dark ? 'text-slate-200 hover:bg-slate-700' : 'text-gray-700 hover:bg-blue-50')
                   }`}
                 >
                   {o.label}
@@ -203,22 +214,21 @@ function TimeMachineCard({
 
       {/* Header */}
       <div>
-        <h2 className="text-orange-400 font-black text-xl tracking-tight">🕰️ เครื่องจับเท็จราคาน้ำมัน</h2>
+        <h2 className="text-orange-400 font-black text-xl tracking-tight">🕰️ เปรียบเทียบให้เจ็บปวด...</h2>
         <p className="text-slate-400 text-sm mt-0.5">ย้อนเวลาดูว่าเติมถังแพงขึ้นแค่ไหน</p>
       </div>
 
       {/* Milestone selector */}
       <div>
         <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wide">เลือกช่วงเวลา</label>
-        <div className="[&_button]:bg-slate-800 [&_button]:border-slate-700 [&_button]:text-slate-200 [&_div]:bg-slate-800 [&_div]:border-slate-700 [&_input]:bg-slate-700 [&_input]:text-white [&_input]:border-slate-600 [&_input::placeholder]:text-slate-400">
-          <SearchableSelect
-            options={milestoneOptions}
-            value={selectedMilestone}
-            onChange={setSelectedMilestone}
-            placeholder="— เลือกช่วงเวลา —"
-            disabled={!result}
-          />
-        </div>
+        <SearchableSelect
+          options={milestoneOptions}
+          value={selectedMilestone}
+          onChange={setSelectedMilestone}
+          placeholder="— เลือกช่วงเวลา —"
+          disabled={!result}
+          dark
+        />
         {!result && (
           <p className="text-slate-500 text-xs mt-1.5">กรุณาคำนวณค่าน้ำมันก่อน เพื่อเปิดใช้งาน</p>
         )}
@@ -299,53 +309,85 @@ function TimeMachineCard({
 
 // ─── Price Comparison Table ───────────────────────────────────────────────────
 
-function PriceComparisonTable({ prices, selectedFuelType }) {
-  const filtered = prices?.filter(p => !selectedFuelType || p.fuelType === selectedFuelType) ?? []
+const DISPLAY_STATIONS = ['PTT', 'Bangchak']
 
-  if (!filtered.length) return (
-    <div className="text-center text-gray-400 text-sm py-4">
-      {selectedFuelType ? 'ไม่มีข้อมูลราคาสำหรับประเภทน้ำมันที่เลือก' : 'เลือกประเภทน้ำมันเพื่อดูตารางเปรียบเทียบ'}
-    </div>
+const FUEL_TYPE_LABELS = {
+  Gasohol95:     'Gasohol 95',
+  Gasohol91:     'Gasohol 91',
+  E20:           'E20',
+  E85:           'E85',
+  Diesel:        'Diesel B7',
+  'Diesel B10':  'Diesel B10',
+}
+
+function PriceComparisonTable({ prices }) {
+  if (!prices?.length) return (
+    <div className="text-center text-gray-400 text-sm py-4">กำลังโหลดราคาน้ำมัน...</div>
   )
 
-  const stationColors = {
-    PTT: 'bg-red-50 text-red-700',
-    Bangchak: 'bg-green-50 text-green-700',
-    Shell: 'bg-yellow-50 text-yellow-700',
+  // เอาเฉพาะ PTT กับ Bangchak, จัดกลุ่มตาม fuelType → station → price
+  const fuelTypes = [...new Set(
+    prices.filter(p => DISPLAY_STATIONS.includes(p.stationBrand)).map(p => p.fuelType)
+  )]
+
+  const priceMap = {}
+  for (const p of prices) {
+    if (!DISPLAY_STATIONS.includes(p.stationBrand)) continue
+    if (!priceMap[p.fuelType]) priceMap[p.fuelType] = {}
+    priceMap[p.fuelType][p.stationBrand] = p
+  }
+
+  // หา tomorrowPriceDifference จาก PTT (เป็น source หลัก)
+  const getTomorrow = (fuelType) => {
+    const ptt = priceMap[fuelType]?.PTT
+    if (!ptt) return null
+    return ptt.tomorrowPriceDifference
   }
 
   return (
     <div>
-      <h3 className="text-gray-700 font-bold mb-3 text-sm tracking-wide uppercase">เปรียบเทียบราคา</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-gray-700 font-bold text-sm tracking-wide">⛽ ราคาน้ำมันวันนี้</h3>
+        <span className="text-xs text-gray-400">บาท/ลิตร</span>
+      </div>
       <div className="overflow-x-auto rounded-xl border border-gray-100">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-              <th className="p-3 text-left font-semibold">สถานี</th>
-              <th className="p-3 text-right font-semibold">วันนี้ (฿)</th>
-              <th className="p-3 text-right font-semibold">พรุ่งนี้ (฿)</th>
-              <th className="p-3 text-right font-semibold">ผลต่าง</th>
+            <tr className="bg-gray-50 text-xs text-gray-500">
+              <th className="p-3 text-left font-semibold">ประเภท</th>
+              <th className="p-3 text-center font-semibold">
+                <span className="inline-block bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-full">PTT</span>
+              </th>
+              <th className="p-3 text-center font-semibold">
+                <span className="inline-block bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded-full">Bangchak</span>
+              </th>
+              <th className="p-3 text-center font-semibold">พรุ่งนี้</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {filtered.map(p => (
-              <tr key={`${p.stationBrand}-${p.fuelType}`} className="bg-white hover:bg-gray-50 transition-colors">
-                <td className="p-3">
-                  <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full ${stationColors[p.stationBrand] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {p.stationBrand}
-                  </span>
-                </td>
-                <td className="p-3 text-right font-semibold text-gray-800">{Number(p.currentPrice).toFixed(2)}</td>
-                <td className="p-3 text-right font-semibold text-gray-600">
-                  {p.tomorrowPrice != null ? Number(p.tomorrowPrice).toFixed(2) : <span className="text-gray-400">-</span>}
-                </td>
-                <td className={`p-3 text-right font-black ${p.tomorrowPriceDifference > 0 ? 'text-red-500' : p.tomorrowPriceDifference < 0 ? 'text-green-500' : 'text-gray-400'}`}>
-                  {p.tomorrowPriceDifference != null
-                    ? `${p.tomorrowPriceDifference > 0 ? '+' : ''}${Number(p.tomorrowPriceDifference).toFixed(2)}`
-                    : '-'}
-                </td>
-              </tr>
-            ))}
+            {fuelTypes.map(ft => {
+              const diff = getTomorrow(ft)
+              return (
+                <tr key={ft} className="bg-white hover:bg-gray-50 transition-colors">
+                  <td className="p-3 font-bold text-gray-700">{FUEL_TYPE_LABELS[ft] ?? ft}</td>
+                  {DISPLAY_STATIONS.map(station => (
+                    <td key={station} className="p-3 text-center font-semibold text-gray-800">
+                      {priceMap[ft]?.[station]
+                        ? Number(priceMap[ft][station].currentPrice).toFixed(2)
+                        : <span className="text-gray-300">-</span>}
+                    </td>
+                  ))}
+                  <td className={`p-3 text-center font-black text-sm ${
+                    diff == null ? 'text-gray-300'
+                    : diff > 0 ? 'text-red-500'
+                    : diff < 0 ? 'text-green-500'
+                    : 'text-gray-400'
+                  }`}>
+                    {diff == null ? '-' : `${diff > 0 ? '+' : ''}${Number(diff).toFixed(2)}`}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -906,7 +948,6 @@ export default function App() {
         <div className="bg-white rounded-3xl shadow-lg p-6">
           <PriceComparisonTable
             prices={fuelPricesData?.prices}
-            selectedFuelType={selectedFuelType}
           />
         </div>
 
