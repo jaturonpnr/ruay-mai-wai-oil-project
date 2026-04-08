@@ -255,6 +255,55 @@ static async Task<Dictionary<string, decimal>> FetchPttTomorrowPrices(
     }
 }
 
+// ── Fetch: PTT historical price for a specific date ──────────────────────────
+// Reuses GetOilPrice SOAP method (same as FetchPttTomorrowPrices) with any date.
+// Historical prices never change so cache TTL is 24 h.
+
+static async Task<Dictionary<string, decimal>> FetchHistoricalPttPrices(
+    DateOnly date, IHttpClientFactory factory, IMemoryCache cache, ILogger logger)
+{
+    var cacheKey = $"ptt_historical_{date:yyyy-MM-dd}";
+    if (cache.TryGetValue(cacheKey, out Dictionary<string, decimal>? cached))
+        return cached!;
+
+    Dictionary<string, decimal> priceMap = [];
+    try
+    {
+        var client = factory.CreateClient("PttApi");
+        foreach (var year in new[] { date.Year + 543, date.Year })
+        {
+            var innerXml = $"""
+                <Language>thai</Language>
+                <DD>{date.Day}</DD>
+                <MM>{date.Month}</MM>
+                <YYYY>{year}</YYYY>
+                """;
+            var body = BuildPttSoapBody("GetOilPrice", innerXml);
+            var resp = await client.PostAsync("oilservice/OilPrice.asmx", body);
+            var xml  = await resp.Content.ReadAsStringAsync();
+
+            if (xml.Contains("<html", StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("[PTT Historical {Date}] response is HTML – skipping", date);
+                break;
+            }
+
+            priceMap = ParsePttSoapResponse(xml);
+            logger.LogInformation("[PTT Historical {Date}] year={Year} parsed {Count} prices", date, year, priceMap.Count);
+            if (priceMap.Count > 0) break;
+        }
+
+        if (priceMap.Count > 0)
+            cache.Set(cacheKey, priceMap, TimeSpan.FromHours(24));
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "[PTT Historical {Date}] request failed", date);
+    }
+
+    return priceMap;
+}
+
 // ── Fetch: chnwt.dev community API ───────────────────────────────────────────
 // Provides prices for all stations. Null on failure.
 
@@ -506,6 +555,95 @@ app.MapGet("/api/calculate", async (
     });
 })
 .WithName("Calculate")
+.WithOpenApi();
+
+// ── GET /api/historical-price ─────────────────────────────────────────────────
+
+app.MapGet("/api/historical-price", async (
+    string date,
+    IHttpClientFactory httpFactory,
+    IMemoryCache cache,
+    ILogger<Program> logger) =>
+{
+    if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var parsedDate))
+        return Results.BadRequest(new { error = "รูปแบบวันที่ไม่ถูกต้อง ใช้ yyyy-MM-dd" });
+
+    if (parsedDate > DateOnly.FromDateTime(DateTime.UtcNow))
+        return Results.BadRequest(new { error = "ไม่สามารถดูราคาอนาคตได้" });
+
+    var prices = await FetchHistoricalPttPrices(parsedDate, httpFactory, cache, logger);
+
+    return Results.Ok(new { date, prices });
+})
+.WithName("GetHistoricalPrice")
+.WithOpenApi();
+
+// ── GET /api/compare-history ──────────────────────────────────────────────────
+
+app.MapGet("/api/compare-history", async (
+    AppDbContext db,
+    IHttpClientFactory httpFactory,
+    IMemoryCache cache,
+    ILogger<Program> logger,
+    string brand,
+    string model,
+    string fuelType,
+    string historicalDate,
+    decimal? tankCapacity) =>
+{
+    // Validate date
+    if (!DateOnly.TryParseExact(historicalDate, "yyyy-MM-dd", out var parsedDate))
+        return Results.BadRequest(new { error = "รูปแบบวันที่ไม่ถูกต้อง ใช้ yyyy-MM-dd" });
+
+    if (parsedDate > DateOnly.FromDateTime(DateTime.UtcNow))
+        return Results.BadRequest(new { error = "ไม่สามารถเปรียบเทียบกับวันในอนาคตได้" });
+
+    // Resolve tank capacity: DB first, fallback to query param
+    var car = await db.CarSpecs
+        .FirstOrDefaultAsync(c => c.Brand == brand && c.ModelFamily == model);
+
+    var resolvedCapacity = (car?.TankCapacity ?? 0) > 0
+        ? car!.TankCapacity
+        : (tankCapacity ?? 0);
+
+    if (resolvedCapacity <= 0)
+        return Results.BadRequest(new { error = "ไม่พบขนาดถังน้ำมัน กรุณาระบุขนาดถังก่อน" });
+
+    // Fetch current price (cheapest station — same logic as /api/calculate)
+    var (pttPrices, chnwtData, dbPrices, _) = await FetchAllSources(httpFactory, cache, db, logger);
+
+    decimal currentPrice = 0;
+    foreach (var (apiStation, displayName) in comparisonStations)
+    {
+        var p = ResolvePrice(apiStation, fuelType, pttPrices, chnwtData, dbPrices, displayName);
+        if (p > 0 && (currentPrice == 0 || p < currentPrice))
+            currentPrice = p;
+    }
+
+    if (currentPrice == 0)
+        return Results.NotFound(new { error = "ไม่พบราคาน้ำมันปัจจุบันสำหรับประเภทที่ระบุ" });
+
+    // Fetch historical price
+    var historicalPrices = await FetchHistoricalPttPrices(parsedDate, httpFactory, cache, logger);
+
+    if (!historicalPrices.TryGetValue(fuelType, out var historicalPrice))
+        return Results.NotFound(new { error = $"ไม่พบข้อมูลราคา {fuelType} เมื่อวันที่ {historicalDate} (อาจเป็นวันหยุด หรือ PTT ไม่มีข้อมูล)" });
+
+    var diffPerLiter         = currentPrice - historicalPrice;
+    var extraCostForFullTank = Math.Round(diffPerLiter * resolvedCapacity, 2);
+
+    return Results.Ok(new
+    {
+        fuelType,
+        historicalDate,
+        historicalPricePerLiter = historicalPrice,
+        currentPricePerLiter    = currentPrice,
+        diffPerLiter            = Math.Round(diffPerLiter, 2),
+        tankCapacity            = resolvedCapacity,
+        extraCostForFullTank,
+    });
+})
+.WithName("CompareHistory")
 .WithOpenApi();
 
 app.Run();
