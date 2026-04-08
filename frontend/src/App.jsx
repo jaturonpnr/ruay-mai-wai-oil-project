@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -958,6 +959,7 @@ export default function App() {
         </p>
 
       </div>
+      <Analytics />
     </div>
   )
 }
