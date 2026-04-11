@@ -1217,5 +1217,51 @@ public static class SeedData
         }
 
         await context.SaveChangesAsync();
+
+        // ── Update km/L for known models (runs every startup, idempotent) ─────────
+        var kmPerLiterData = new Dictionary<(string Brand, string Model), decimal>
+        {
+            // Toyota
+            { ("Toyota", "Yaris"),                16.0m },
+            { ("Toyota", "Yaris Ativ"),            18.0m },
+            { ("Toyota", "Yaris Cross"),           16.5m },
+            { ("Toyota", "Corolla"),               15.0m },
+            { ("Toyota", "Corolla Altis"),         15.0m },
+            { ("Toyota", "Corolla Cross"),         15.0m },
+            { ("Toyota", "C-HR"),                  14.5m },
+            { ("Toyota", "Camry"),                 12.5m },
+            { ("Toyota", "Fortuner"),              10.0m },
+            { ("Toyota", "Hilux Revo"),            12.0m },
+            { ("Toyota", "Innova"),                12.0m },
+            { ("Toyota", "Innova Zenix"),          14.0m },
+            { ("Toyota", "Alphard"),                8.5m },
+            { ("Toyota", "Vellfire"),               8.5m },
+            { ("Toyota", "Veloz"),                 14.0m },
+            // Honda
+            { ("Honda", "City"),                   17.0m },
+            { ("Honda", "Civic"),                  14.5m },
+            { ("Honda", "HR-V"),                   14.0m },
+            { ("Honda", "CR-V"),                   12.5m },
+            { ("Honda", "Jazz"),                   16.0m },
+            { ("Honda", "BR-V"),                   14.5m },
+            { ("Honda", "Accord"),                 12.0m },
+            // Mazda
+            { ("Mazda", "2"),                      18.0m },
+            { ("Mazda", "3"),                      15.0m },
+            { ("Mazda", "CX-3"),                   14.0m },
+            { ("Mazda", "CX-5"),                   13.0m },
+            { ("Mazda", "CX-8"),                   12.0m },
+            { ("Mazda", "CX-30"),                  14.0m },
+            // Isuzu
+            { ("Isuzu", "D-Max"),                  12.5m },
+            { ("Isuzu", "MU-X"),                   11.5m },
+        };
+
+        foreach (var ((brand, model), kmPerL) in kmPerLiterData)
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                "UPDATE \"CarSpecs\" SET \"FuelEfficiencyKmPerL\" = {0} WHERE \"Brand\" = {1} AND \"ModelFamily\" = {2} AND \"FuelEfficiencyKmPerL\" = 0",
+                kmPerL, brand, model);
+        }
     }
 }

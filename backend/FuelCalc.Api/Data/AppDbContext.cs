@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Brand).HasMaxLength(100).IsRequired();
             e.Property(x => x.ModelFamily).HasMaxLength(100).IsRequired();
             e.Property(x => x.TankCapacity).HasPrecision(6, 2);
+            e.Property(x => x.FuelEfficiencyKmPerL).HasPrecision(5, 2);
             e.Property(x => x.FuelTypesSupported).HasMaxLength(200).IsRequired();
         });
 
