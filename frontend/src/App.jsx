@@ -396,6 +396,259 @@ function PriceComparisonTable({ prices }) {
   )
 }
 
+// ─── Brand Card Grid ──────────────────────────────────────────────────────────
+
+const BRAND_CARD_CONFIG = [
+  { brand: 'Toyota', logo: '/logo/toyota_logo_transparent.png' },
+  { brand: 'Honda',  logo: '/logo/honda_logo_transparent.png'  },
+  { brand: 'Mazda',  logo: '/logo/mazda_logo_transparent.png'  },
+  { brand: 'Isuzu',  logo: '/logo/isuzu_logo_transparent.png'  },
+  { brand: 'อื่นๆ', logo: null                                 },
+]
+
+function BrandCardGrid({ selectedBrand, onSelect }) {
+  return (
+    <div className="grid grid-cols-5 gap-2">
+      {BRAND_CARD_CONFIG.map(({ brand, logo }) => {
+        const isSelected = brand === 'อื่นๆ'
+          ? (selectedBrand && !PRIORITY_BRANDS.includes(selectedBrand))
+          : selectedBrand === brand
+        return (
+          <button
+            key={brand}
+            type="button"
+            onClick={() => onSelect(brand)}
+            className={`aspect-square flex items-center justify-center rounded-2xl border-2 transition-all duration-150 p-3 ${
+              isSelected
+                ? 'border-blue-500 bg-blue-50 shadow-md scale-105'
+                : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm'
+            }`}
+          >
+            {logo ? (
+              <img src={logo} alt={brand} className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-sm text-gray-500 font-black">อื่นๆ</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Songkran Trip Card ───────────────────────────────────────────────────────
+
+const PRESET_ROUTES = [
+  { label: 'กรุงเทพ → เชียงใหม่',      distance: 700  },
+  { label: 'กรุงเทพ → ขอนแก่น',        distance: 445  },
+  { label: 'กรุงเทพ → อุดรธานี',       distance: 561  },
+  { label: 'กรุงเทพ → โคราช',          distance: 260  },
+  { label: 'กรุงเทพ → หาดใหญ่',        distance: 950  },
+  { label: 'กรุงเทพ → สุราษฎร์ธานี',  distance: 645  },
+  { label: 'กรุงเทพ → พัทยา',          distance: 140  },
+  { label: 'กรุงเทพ → หัวหิน',         distance: 200  },
+  { label: 'กรุงเทพ → กาญจนบุรี',      distance: 130  },
+]
+
+function SongkranTripCard({
+  fuelPricesData,
+  selectedCarKmPerL,
+  tripDistance, setTripDistance,
+  tripKmPerLiter, setTripKmPerLiter,
+  tripFuelType, setTripFuelType,
+  tripRoundTrip, setTripRoundTrip,
+  tripResult, setTripResult,
+  tripCalculating, setTripCalculating,
+  tripError, setTripError,
+}) {
+  const fuelTypeOptions = FUEL_TYPES.map(ft => ({ value: ft, label: ft }))
+
+  const fuelPrice = (() => {
+    if (!tripFuelType || !fuelPricesData?.prices) return 0
+    const entry = fuelPricesData.prices.find(
+      p => p.stationBrand === 'PTT' && p.fuelType === tripFuelType
+    )
+    return entry ? Number(entry.currentPrice) : 0
+  })()
+
+  const canCalculate = Number(tripDistance) > 0 && Number(tripKmPerLiter) > 0 && fuelPrice > 0
+
+  const handleCalculate = async () => {
+    if (!canCalculate) return
+    setTripCalculating(true)
+    setTripError(null)
+    setTripResult(null)
+    try {
+      const params = new URLSearchParams({
+        distanceKm:  tripDistance,
+        kmPerLiter:  tripKmPerLiter,
+        fuelPrice:   String(fuelPrice),
+        isRoundTrip: String(tripRoundTrip),
+      })
+      const res = await fetch(`${API_URL}/api/calculate-trip?${params}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'คำนวณไม่สำเร็จ')
+      }
+      setTripResult(await res.json())
+    } catch (err) {
+      setTripError(err.message)
+    } finally {
+      setTripCalculating(false)
+    }
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-cyan-900 to-blue-900 rounded-3xl shadow-lg p-6 space-y-5">
+
+      {/* Header */}
+      <div>
+        <h2 className="text-cyan-300 font-black text-xl tracking-tight">🚗 ทริปสงกรานต์ 💦</h2>
+        <p className="text-cyan-500 text-sm mt-0.5">คำนวณค่าน้ำมันสำหรับการเดินทางช่วงสงกรานต์</p>
+      </div>
+
+      {/* Preset routes */}
+      <div>
+        <label className="block text-xs font-bold text-cyan-400 mb-2 uppercase tracking-wide">เส้นทางยอดนิยม</label>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {PRESET_ROUTES.map(r => (
+            <button
+              key={r.label}
+              type="button"
+              onClick={() => setTripDistance(String(r.distance))}
+              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                String(r.distance) === tripDistance
+                  ? 'bg-cyan-400 text-cyan-900 border-cyan-400'
+                  : 'border-cyan-700 text-cyan-300 hover:border-cyan-400 hover:text-cyan-100'
+              }`}
+            >
+              {r.label}
+              <span className="block text-center opacity-70">{r.distance} กม.</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Distance + Round-trip */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-cyan-400 mb-1.5 uppercase tracking-wide">ระยะทาง (กม.)</label>
+          <div className="relative">
+            <input
+              type="number"
+              value={tripDistance}
+              onChange={e => { setTripDistance(e.target.value); setTripResult(null) }}
+              placeholder="เช่น 700"
+              min="1"
+              className="w-full bg-cyan-950 border border-cyan-700 text-cyan-100 placeholder-cyan-700 rounded-2xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-600 text-xs font-semibold">กม.</span>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-cyan-400 mb-1.5 uppercase tracking-wide">ประเภทเที่ยว</label>
+          <button
+            type="button"
+            onClick={() => { setTripRoundTrip(v => !v); setTripResult(null) }}
+            className={`w-full py-3 px-4 rounded-2xl font-black text-sm border-2 transition-all ${
+              tripRoundTrip
+                ? 'bg-cyan-400 text-cyan-900 border-cyan-400'
+                : 'bg-transparent text-cyan-400 border-cyan-700 hover:border-cyan-400'
+            }`}
+          >
+            {tripRoundTrip ? '↩ ไป-กลับ' : '→ เที่ยวเดียว'}
+          </button>
+        </div>
+      </div>
+
+      {/* Fuel type + km/L */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-cyan-400 mb-1.5 uppercase tracking-wide">ประเภทน้ำมัน</label>
+          <SearchableSelect
+            options={fuelTypeOptions}
+            value={tripFuelType}
+            onChange={v => { setTripFuelType(v); setTripResult(null) }}
+            placeholder="— เลือก —"
+            dark
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-cyan-400 mb-1.5 uppercase tracking-wide">
+            กม./ลิตร
+            {selectedCarKmPerL > 0 && <span className="ml-1 text-cyan-600 font-normal text-xs">(จากรถที่เลือก)</span>}
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              value={tripKmPerLiter}
+              onChange={e => { setTripKmPerLiter(e.target.value); setTripResult(null) }}
+              placeholder={selectedCarKmPerL > 0 ? String(selectedCarKmPerL) : 'เช่น 14'}
+              min="1"
+              className="w-full bg-cyan-950 border border-cyan-700 text-cyan-100 placeholder-cyan-700 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Fuel price indicator */}
+      {tripFuelType && (
+        <div className="bg-cyan-950 rounded-2xl p-3 flex justify-between items-center">
+          <span className="text-cyan-400 text-sm">ราคา {tripFuelType} (PTT วันนี้)</span>
+          <span className="font-black text-cyan-100">
+            {fuelPrice > 0
+              ? `฿${fuelPrice.toFixed(2)}/ลิตร`
+              : <span className="text-cyan-600">ไม่พบราคา</span>}
+          </span>
+        </div>
+      )}
+
+      {/* Calculate button */}
+      <button
+        onClick={handleCalculate}
+        disabled={!canCalculate || tripCalculating}
+        className="w-full bg-cyan-400 hover:bg-cyan-300 active:scale-95 disabled:bg-cyan-950 disabled:text-cyan-700 text-cyan-900 font-black py-4 rounded-2xl transition-all text-lg shadow-md"
+      >
+        {tripCalculating ? 'กำลังคำนวณ...' : 'คำนวณค่าน้ำมันทริป'}
+      </button>
+
+      {/* Error */}
+      {tripError && (
+        <div className="bg-red-950 border border-red-800 rounded-2xl p-3 text-red-400 text-sm text-center">
+          {tripError}
+        </div>
+      )}
+
+      {/* Result */}
+      {tripResult && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-cyan-950 rounded-2xl p-3.5 text-center">
+              <p className="text-xs text-cyan-500 font-bold mb-1 uppercase tracking-wide">ระยะทางรวม</p>
+              <p className="font-black text-cyan-100 text-xl tabular-nums">{tripResult.effectiveDistance} กม.</p>
+              {tripResult.isRoundTrip && <p className="text-xs text-cyan-600 mt-0.5">(ไป-กลับ)</p>}
+            </div>
+            <div className="bg-cyan-950 rounded-2xl p-3.5 text-center">
+              <p className="text-xs text-cyan-500 font-bold mb-1 uppercase tracking-wide">น้ำมันที่ต้องการ</p>
+              <p className="font-black text-cyan-100 text-xl tabular-nums">{tripResult.litersNeeded} ลิตร</p>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl p-5 text-center">
+            <p className="text-cyan-900 font-bold text-sm mb-1">เตรียมค่าน้ำมันไว้เลย</p>
+            <p className="font-black text-white text-5xl tabular-nums tracking-tight">
+              ฿{Number(tripResult.totalCost).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-cyan-100 text-xs mt-2 opacity-80">
+              {tripResult.effectiveDistance} กม. ÷ {tripResult.kmPerLiter} กม./ล. × ฿{Number(tripResult.fuelPrice).toFixed(2)}/ล.
+            </p>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
 // ─── Price Simulator (What-If) ────────────────────────────────────────────────
 
 const QUICK_PRESETS = [0.5, 1.0, 2.0, 3.0,3.5]
@@ -642,6 +895,19 @@ export default function App() {
   const [timeMachineLoading, setTimeMachineLoading] = useState(false)
   const [timeMachineError, setTimeMachineError]     = useState(null)
 
+  // Tab & Brand cards
+  const [activeTab, setActiveTab]             = useState('fuel') // 'fuel' | 'trip'
+  const [showBrandSearch, setShowBrandSearch] = useState(false)
+
+  // Songkran Trip
+  const [tripDistance, setTripDistance]       = useState('')
+  const [tripKmPerLiter, setTripKmPerLiter]   = useState('')
+  const [tripFuelType, setTripFuelType]       = useState('')
+  const [tripRoundTrip, setTripRoundTrip]     = useState(true)
+  const [tripResult, setTripResult]           = useState(null)
+  const [tripCalculating, setTripCalculating] = useState(false)
+  const [tripError, setTripError]             = useState(null)
+
   // ── Initial data fetch ──
   useEffect(() => {
     const load = async () => {
@@ -721,7 +987,24 @@ export default function App() {
 
   const fuelTypeOptions = FUEL_TYPES.map(ft => ({ value: ft, label: ft }))
 
+  // km/L from selected car (0 = unknown)
+  const selectedCarKmPerL = (() => {
+    if (!selectedBrand || !selectedModel) return 0
+    const models = carsData?.models?.[selectedBrand] ?? []
+    return models.find(m => m.model === selectedModel)?.kmPerLiter ?? 0
+  })()
+
+  // Sync km/L into trip card when car selection changes
+  useEffect(() => {
+    if (selectedCarKmPerL > 0) setTripKmPerLiter(String(selectedCarKmPerL))
+  }, [selectedCarKmPerL]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleBrandChange = (brand) => {
+    if (brand === 'อื่นๆ') {
+      setShowBrandSearch(true)
+      return
+    }
+    setShowBrandSearch(false)
     setSelectedBrand(brand)
     setSelectedModel('')
     setSelectedFuelType('')
@@ -796,6 +1079,26 @@ export default function App() {
           <p className="text-gray-400 text-sm mt-1">เปรียบเทียบราคาและประหยัดค่าน้ำมัน</p>
         </div>
 
+        {/* Tab Toggle */}
+        <div className="flex rounded-2xl overflow-hidden border border-gray-200 p-1 bg-gray-100 gap-1">
+          {[
+            { value: 'fuel', label: '⛽ เติมน้ำมัน' },
+            { value: 'trip', label: '🚗 ทริปสงกรานต์ 💦' },
+          ].map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setActiveTab(value)}
+              className={`flex-1 py-3 px-3 rounded-xl text-sm font-black transition-all duration-200 ${
+                activeTab === value
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Golden Hour Banner */}
         <GoldenHourBanner alert={fuelPricesData?.goldenHourAlert} />
 
@@ -805,6 +1108,22 @@ export default function App() {
             ⚠️ {fetchError}
           </div>
         )}
+
+        {activeTab === 'trip' && (
+          <SongkranTripCard
+            fuelPricesData={fuelPricesData}
+            selectedCarKmPerL={selectedCarKmPerL}
+            tripDistance={tripDistance} setTripDistance={setTripDistance}
+            tripKmPerLiter={tripKmPerLiter} setTripKmPerLiter={setTripKmPerLiter}
+            tripFuelType={tripFuelType} setTripFuelType={setTripFuelType}
+            tripRoundTrip={tripRoundTrip} setTripRoundTrip={setTripRoundTrip}
+            tripResult={tripResult} setTripResult={setTripResult}
+            tripCalculating={tripCalculating} setTripCalculating={setTripCalculating}
+            tripError={tripError} setTripError={setTripError}
+          />
+        )}
+
+        {activeTab === 'fuel' && <>
 
         {/* ── Main Calculator Card ── */}
         <div className="bg-white rounded-3xl shadow-lg p-6 space-y-5">
@@ -832,15 +1151,26 @@ export default function App() {
             </div>
           </div>
 
-          {/* Brand Dropdown */}
+          {/* Brand Cards */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ยี่ห้อรถ</label>
-            <SearchableSelect
-              options={brandOptions}
-              value={selectedBrand}
-              onChange={handleBrandChange}
-              placeholder="— เลือกยี่ห้อรถ —"
-            />
+            <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">ยี่ห้อรถ</label>
+            <BrandCardGrid selectedBrand={selectedBrand} onSelect={handleBrandChange} />
+            {showBrandSearch && (
+              <div className="mt-2">
+                <SearchableSelect
+                  options={brandOptions.filter(b => !PRIORITY_BRANDS.includes(b.value))}
+                  value={selectedBrand}
+                  onChange={(brand) => {
+                    setSelectedBrand(brand)
+                    setSelectedModel('')
+                    setSelectedFuelType('')
+                    setResult(null)
+                    setCalcError(null)
+                  }}
+                  placeholder="— ค้นหายี่ห้อ —"
+                />
+              </div>
+            )}
           </div>
 
           {/* Model Dropdown */}
@@ -951,6 +1281,8 @@ export default function App() {
             prices={fuelPricesData?.prices}
           />
         </div>
+
+        </>}
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-4">

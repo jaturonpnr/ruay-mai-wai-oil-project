@@ -6,6 +6,8 @@ public class CarSpec
     public string Brand { get; set; } = string.Empty;
     public string ModelFamily { get; set; } = string.Empty;
     public decimal TankCapacity { get; set; }
+    /// <summary>Fuel efficiency in km per liter. 0 = unknown.</summary>
+    public decimal FuelEfficiencyKmPerL { get; set; }
     /// <summary>Comma-separated fuel types, e.g. "E20,Gasohol95"</summary>
     public string FuelTypesSupported { get; set; } = string.Empty;
 }

@@ -425,6 +425,7 @@ app.MapGet("/api/cars", async (AppDbContext db) =>
                 {
                     model        = c.ModelFamily,
                     tankCapacity = c.TankCapacity,
+                    kmPerLiter   = c.FuelEfficiencyKmPerL,
                     fuelTypes    = c.FuelTypesSupported.Split(',', StringSplitOptions.TrimEntries)
                 }).ToList()
             )
@@ -596,6 +597,27 @@ app.MapGet("/api/calculate", async (
     });
 })
 .WithName("Calculate")
+.WithOpenApi();
+
+// ── GET /api/calculate-trip ───────────────────────────────────────────────────
+
+app.MapGet("/api/calculate-trip", (
+    decimal distanceKm,
+    decimal kmPerLiter,
+    decimal fuelPrice,
+    bool    isRoundTrip = false) =>
+{
+    if (distanceKm  <= 0) return Results.BadRequest(new { error = "distanceKm ต้องมากกว่า 0" });
+    if (kmPerLiter  <= 0) return Results.BadRequest(new { error = "kmPerLiter ต้องมากกว่า 0" });
+    if (fuelPrice   <= 0) return Results.BadRequest(new { error = "fuelPrice ต้องมากกว่า 0" });
+
+    var effectiveDistance = isRoundTrip ? distanceKm * 2 : distanceKm;
+    var litersNeeded      = Math.Round(effectiveDistance / kmPerLiter, 2);
+    var totalCost         = Math.Round(litersNeeded * fuelPrice, 2);
+
+    return Results.Ok(new { distanceKm, effectiveDistance, isRoundTrip, kmPerLiter, fuelPrice, litersNeeded, totalCost });
+})
+.WithName("CalculateTrip")
 .WithOpenApi();
 
 // ── GET /api/historical-price ─────────────────────────────────────────────────
