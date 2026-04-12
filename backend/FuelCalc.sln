@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FuelCalc.Api", "FuelCalc.Api\FuelCalc.Api.csproj", "{030C4F0B-76B5-4713-822A-B7651376CBD5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FuelCalc.Tests", "FuelCalc.Tests\FuelCalc.Tests.csproj", "{309554D2-B613-4B17-B5FC-F5908F9C76BB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{030C4F0B-76B5-4713-822A-B7651376CBD5}.Release|x64.Build.0 = Release|Any CPU
 		{030C4F0B-76B5-4713-822A-B7651376CBD5}.Release|x86.ActiveCfg = Release|Any CPU
 		{030C4F0B-76B5-4713-822A-B7651376CBD5}.Release|x86.Build.0 = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|x64.Build.0 = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Debug|x86.Build.0 = Debug|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|x64.ActiveCfg = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|x64.Build.0 = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|x86.ActiveCfg = Release|Any CPU
+		{309554D2-B613-4B17-B5FC-F5908F9C76BB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
