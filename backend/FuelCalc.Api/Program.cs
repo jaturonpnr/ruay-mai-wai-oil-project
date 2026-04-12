@@ -99,6 +99,20 @@ static string? MapPttProduct(string name)
     return null;
 }
 
+// ── Thai timezone helpers ─────────────────────────────────────────────────────
+
+// Returns Thai today, Thai tomorrow, and time remaining until Thai midnight.
+// Works on both Windows ("SE Asia Standard Time") and Linux ("Asia/Bangkok").
+static (DateOnly today, DateOnly tomorrow, TimeSpan untilMidnight) GetThaiDates()
+{
+    var thaiZone = TimeZoneInfo.GetSystemTimeZones().FirstOrDefault(z =>
+                       z.Id is "SE Asia Standard Time" or "Asia/Bangkok")
+                   ?? TimeZoneInfo.CreateCustomTimeZone("TH+7", TimeSpan.FromHours(7), "Thailand", "Thailand");
+    var thaiNow  = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, thaiZone);
+    var today    = DateOnly.FromDateTime(thaiNow.Date);
+    return (today, today.AddDays(1), thaiNow.Date.AddDays(1) - thaiNow);
+}
+
 // ── PTT SOAP helpers ──────────────────────────────────────────────────────────
 
 // Builds a SOAP 1.1 envelope for PTT ASMX.
@@ -183,7 +197,8 @@ static Dictionary<string, decimal> ParsePttSoapResponse(string xml)
 static async Task<Dictionary<string, decimal>> FetchPttPrices(
     IHttpClientFactory factory, IMemoryCache cache, ILogger logger)
 {
-    const string CacheKey = "ptt_xml_prices";
+    var (thaiToday, _, untilMidnight) = GetThaiDates();
+    var CacheKey = $"ptt_xml_{thaiToday:yyyy-MM-dd}";
     if (cache.TryGetValue(CacheKey, out Dictionary<string, decimal>? cached))
     {
         logger.LogInformation("[PTT Today] cache hit → {Count} fuel types", cached!.Count);
@@ -213,7 +228,7 @@ static async Task<Dictionary<string, decimal>> FetchPttPrices(
             string.Join(", ", priceMap.Select(kv => $"{kv.Key}={kv.Value}")));
 
         if (priceMap.Count > 0)
-            cache.Set(CacheKey, priceMap, TimeSpan.FromMinutes(30));
+            cache.Set(CacheKey, priceMap, untilMidnight);
 
         return priceMap;
     }
@@ -230,7 +245,8 @@ static async Task<Dictionary<string, decimal>> FetchPttPrices(
 static async Task<Dictionary<string, decimal>> FetchPttTomorrowPrices(
     IHttpClientFactory factory, IMemoryCache cache, ILogger logger)
 {
-    const string CacheKey = "ptt_xml_tomorrow_prices";
+    var (_, thaiTomorrow, untilMidnight) = GetThaiDates();
+    var CacheKey = $"ptt_xml_tomorrow_{thaiTomorrow:yyyy-MM-dd}";
     if (cache.TryGetValue(CacheKey, out Dictionary<string, decimal>? cached))
     {
         logger.LogInformation("[PTT Tomorrow] cache hit → {Count} fuel types", cached!.Count);
@@ -239,23 +255,22 @@ static async Task<Dictionary<string, decimal>> FetchPttTomorrowPrices(
 
     try
     {
-        var client   = factory.CreateClient("PttApi");
-        var tomorrow = DateTime.UtcNow.AddDays(1);
+        var client = factory.CreateClient("PttApi");
 
         // PTT may use Buddhist Era (Gregorian + 543). Try both.
         Dictionary<string, decimal> priceMap = [];
-        foreach (var year in new[] { tomorrow.Year + 543, tomorrow.Year })
+        foreach (var year in new[] { thaiTomorrow.Year + 543, thaiTomorrow.Year })
         {
             var innerXml = $"""
                 <Language>thai</Language>
-                <DD>{tomorrow.Day}</DD>
-                <MM>{tomorrow.Month}</MM>
+                <DD>{thaiTomorrow.Day}</DD>
+                <MM>{thaiTomorrow.Month}</MM>
                 <YYYY>{year}</YYYY>
                 """;
             var body = BuildPttSoapBody("GetOilPrice", innerXml);
 
             logger.LogInformation("[PTT Tomorrow] POST GetOilPrice  DD={Day} MM={Month} YYYY={Year}",
-                tomorrow.Day, tomorrow.Month, year);
+                thaiTomorrow.Day, thaiTomorrow.Month, year);
             var resp = await client.PostAsync("oilservice/OilPrice.asmx", body);
             var xml  = await resp.Content.ReadAsStringAsync();
 
@@ -276,7 +291,7 @@ static async Task<Dictionary<string, decimal>> FetchPttTomorrowPrices(
         }
 
         if (priceMap.Count > 0)
-            cache.Set(CacheKey, priceMap, TimeSpan.FromMinutes(30));
+            cache.Set(CacheKey, priceMap, untilMidnight);
 
         return priceMap;
     }
@@ -345,7 +360,8 @@ static async Task<Dictionary<string, decimal>> FetchHistoricalPttPrices(
 static async Task<ThaiOilData?> FetchChnwtPrices(
     IHttpClientFactory factory, IMemoryCache cache)
 {
-    const string CacheKey = "thai_oil_prices";
+    var (thaiToday, _, untilMidnight) = GetThaiDates();
+    var CacheKey = $"thai_oil_{thaiToday:yyyy-MM-dd}";
     if (cache.TryGetValue(CacheKey, out ThaiOilData? cached)) return cached;
 
     try
@@ -357,7 +373,7 @@ static async Task<ThaiOilData?> FetchChnwtPrices(
 
         if (root?.Status == "success" && root.Response is not null)
         {
-            cache.Set(CacheKey, root.Response, TimeSpan.FromMinutes(30));
+            cache.Set(CacheKey, root.Response, untilMidnight);
             return root.Response;
         }
     }
